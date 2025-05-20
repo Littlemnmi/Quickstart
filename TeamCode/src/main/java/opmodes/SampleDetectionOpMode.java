@@ -14,6 +14,13 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 //import org.firstinspires.ftc.teamcode.robot.camera.SampleDetectionProcessor;
 
+import org.firstinspires.ftc.vision.opencv.ColorBlobLocatorProcessor;
+import org.firstinspires.ftc.vision.opencv.ColorRange;
+import org.firstinspires.ftc.vision.opencv.ImageRegion;
+import org.opencv.core.RotatedRect;
+
+import java.util.List;
+
 @TeleOp(name="Sample Detection", group="Test")
 public class SampleDetectionOpMode extends LinearOpMode {
 
@@ -24,6 +31,14 @@ public class SampleDetectionOpMode extends LinearOpMode {
     @Override
     public void runOpMode() {
         processor = new SampleDetectionProcessor(CameraColor.BLUE);
+
+        ColorBlobLocatorProcessor colorLocator = new ColorBlobLocatorProcessor.Builder()
+            .setTargetColorRange(ColorRange.BLUE)         // use a predefined color match
+            .setContourMode(ColorBlobLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
+            .setRoi(ImageRegion.asUnityCenterCoordinates(-0.5, 0.5, 0.5, -0.5))  // search central 1/4 of camera view
+            .setDrawContours(true)                        // Show contours on the Stream Preview
+            .setBlurSize(5)                               // Smooth the transitions between different colors in image
+            .build();
 
         // Build the VisionPortal
         visionPortal = new VisionPortal.Builder()                
@@ -36,10 +51,24 @@ public class SampleDetectionOpMode extends LinearOpMode {
 
         telemetry.addLine("Ready! Press Start.");
         telemetry.update();
-        waitForStart();
 
-        while (opModeIsActive()) {
-            telemetry.addLine("opmode is active.");
+
+        while (opModeIsActive() || opModeInInit()) {
+             // Read the current list
+            List<ColorBlobLocatorProcessor.Blob> blobs = colorLocator.getBlobs();
+            ColorBlobLocatorProcessor.Util.filterByArea(1000, 20000, blobs);  // filter out very small blobs.
+
+            telemetry.addLine(" Area  Density  Aspect Center");
+
+            // Display the size (area) and center location for each Blob.
+            for(ColorBlobLocatorProcessor.Blob b : blobs)
+            {
+                RotatedRect boxFit = b.getBoxFit();
+                telemetry.addLine(String.format("%5d  %4.2f   %5.2f  (%3d,%3d)",
+                          b.getContourArea(), b.getDensity(), b.getAspectRatio(), (int) boxFit.center.x, (int) boxFit.center.y));
+            }
+
+
             // Access processed sample data
             SampleImageProcessor pipeline = processor.getPipeline();
 

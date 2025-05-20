@@ -234,7 +234,7 @@ public class SampleImageProcessor {
         return samples;
     }
 
-    private int renderBoxContour(Mat inputBgr, int idx, Point[] pts) {
+    /*private int renderBoxContour(Mat inputBgr, int idx, Point[] pts) {
         
         MatOfPoint box = new MatOfPoint(pts);
         Imgproc.drawContours(inputBgr,
@@ -261,6 +261,6 @@ public class SampleImageProcessor {
         
         Imgcodecs.imwrite(debugOutputDir + "/" + filename, visualOutput);
         visualOutput.release();
-    }
+    }*/
 }
 
