@@ -5,6 +5,9 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
 import org.firstinspires.ftc.vision.VisionProcessor;
 import org.opencv.core.*;
@@ -13,6 +16,8 @@ import org.opencv.core.*;
 public class SampleDetectionProcessor implements VisionProcessor {
 
     private SampleImageProcessor pipeline = new SampleImageProcessor();
+
+    private volatile ArrayList<DetectedSample> detectedSamples = new ArrayList<>();
 
     // Store the last processed frame for drawing (optional)
     private Mat lastFrame = null;
@@ -33,20 +38,23 @@ public class SampleDetectionProcessor implements VisionProcessor {
 
     @Override
     public Object processFrame(Mat input, long captureTimeNanos) {
-        if (lastFrame != null) {
+        /*if (lastFrame != null) {
             lastFrame.release();
         }
-        lastFrame = input.clone(); // Save a copy if you want to draw later
+        lastFrame = input.clone(); */
 
-        pipeline.detectSamples(input, targetColor, 500);
+        List<DetectedSample> samples = pipeline.detectSamples(input, targetColor, 500);
 
+        detectedSamples =new ArrayList<>(samples);
         // You can return detection results (optional)
-        return pipeline;
+        return detectedSamples;
     }
 
     @Override
     public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight, float scaleBmpPxToCanvasPx, float scaleCanvasDensity, Object userContext) {
         if (canvas == null) return;
+
+        ArrayList<DetectedSample> samples = (ArrayList<DetectedSample>) userContext;
 
         Paint greenPaint = new Paint();
         greenPaint.setColor(Color.GREEN);
@@ -58,7 +66,7 @@ public class SampleDetectionProcessor implements VisionProcessor {
         textPaint.setTextSize(30);
 
         // Draw yellow samples
-        for (DetectedSample sample : pipeline.samples) {
+        for (DetectedSample sample : samples) {
             drawSample(canvas, sample, greenPaint, textPaint, "Y: " + String.format("%.0f\"", sample.distanceInches));
         }
         
@@ -91,8 +99,8 @@ public class SampleDetectionProcessor implements VisionProcessor {
         canvas.drawText(label, textX, textY, textPaint);
     }
 
-    public SampleImageProcessor getPipeline() {
-        return pipeline;
+    public List<DetectedSample> getDetectedSamples() {
+        return detectedSamples;
     }
 }
 

@@ -30,7 +30,7 @@ public class SampleDetectionOpMode extends LinearOpMode {
     @SuppressLint("DefaultLocale")
     @Override
     public void runOpMode() {
-        processor = new SampleDetectionProcessor(CameraColor.BLUE);
+        processor = new SampleDetectionProcessor(CameraColor.RED);
 
         ColorBlobLocatorProcessor colorLocator = new ColorBlobLocatorProcessor.Builder()
             .setTargetColorRange(ColorRange.BLUE)         // use a predefined color match
@@ -70,9 +70,9 @@ public class SampleDetectionOpMode extends LinearOpMode {
 
 
             // Access processed sample data
-            SampleImageProcessor pipeline = processor.getPipeline();
+            List<DetectedSample> samples = processor.getDetectedSamples();
 
-            for (DetectedSample sample : pipeline.samples) {
+            for (DetectedSample sample : samples) {
                 telemetry.addData("Sample", String.format("(%.1f,%.1f) %.1f\" %.1f°",
                         sample.boundingBox.center.x, sample.boundingBox.center.y,
                         sample.distanceInches, sample.angleDegrees));
@@ -80,7 +80,7 @@ public class SampleDetectionOpMode extends LinearOpMode {
 
 
             telemetry.update();
-            sleep(5000);
+            sleep(1000);
         }
     }
 }

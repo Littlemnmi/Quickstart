@@ -95,6 +95,7 @@ public class SampleImageProcessor {
         Imgproc.morphologyEx(mask, cleaned, Imgproc.MORPH_CLOSE, kernelClean, new Point(-1, -1), 2);
         Mat cleaned2 = new Mat();
         Imgproc.morphologyEx(cleaned, cleaned2, Imgproc.MORPH_OPEN,  kernelClean, new Point(-1, -1), 2);
+        cleaned.release();
         return cleaned2;
     }
 
@@ -131,14 +132,15 @@ public class SampleImageProcessor {
         Core.add(markers, Scalar.all(1), markers);        // ensure background != 0
         markers.setTo(Scalar.all(0), unknown);           // mark unknown as 0
 
-
-        // Apply watershed to segment touching regions
-        Imgproc.watershed(inputBgr, markers);
+        // Clone the BGR image so we don’t accidentally free the caller’s Mat
+        Mat bgrForWatershed = inputBgr.clone();
+        Imgproc.watershed(bgrForWatershed, markers);
 
         dist.release();
         fg.release();
         bg.release();
         unknown.release();
+        bgrForWatershed.release();
         return markers;
     }
 
@@ -177,11 +179,12 @@ public class SampleImageProcessor {
         samples.clear();
         Mat hsv = new Mat();
         Imgproc.cvtColor(inputBgr, hsv, Imgproc.COLOR_BGR2HSV);
-
-        Mat maskClean = cleanMask(getColorMask(hsv, color));
+        Mat colorMask = getColorMask(hsv, color);
+        Mat maskClean = cleanMask(colorMask);
         //renderImage(maskClean, "mask_clean_" + color.name().toLowerCase() + ".png");
-
-        Mat markers   = computeMarkers(maskClean, inputBgr);
+        
+        // Compute markers for watershed
+        Mat markers = computeMarkers(maskClean, hsv);
 
         //renderImage(markers, "markers_" + color.name().toLowerCase() + ".png");
 
@@ -201,7 +204,7 @@ public class SampleImageProcessor {
 
                 //for debug
                 //idx = renderBoxContour(inputBgr, idx, pts);
-
+                
                 // Pose estimation
                 List<Point3> objPts = Arrays.asList(
                         new Point3(-1.75, -0.75, 0),
@@ -223,18 +226,18 @@ public class SampleImageProcessor {
                 Mat R = new Mat();
                 Calib3d.Rodrigues(rvec, R);
                 double yaw = Math.atan2(R.get(1, 0)[0], R.get(0, 0)[0]);
-
                 samples.add(new DetectedSample(rect, distance, yaw));
             }
         }
 
         hsv.release();
+        colorMask.release();
         maskClean.release();
         markers.release();
         return samples;
     }
 
-    /*private int renderBoxContour(Mat inputBgr, int idx, Point[] pts) {
+    private int renderBoxContour(Mat inputBgr, int idx, Point[] pts) {
         
         MatOfPoint box = new MatOfPoint(pts);
         Imgproc.drawContours(inputBgr,
@@ -261,6 +264,6 @@ public class SampleImageProcessor {
         
         Imgcodecs.imwrite(debugOutputDir + "/" + filename, visualOutput);
         visualOutput.release();
-    }*/
+    }
 }
 
