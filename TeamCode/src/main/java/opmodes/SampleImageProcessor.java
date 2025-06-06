@@ -221,6 +221,9 @@ public class SampleImageProcessor {
                         cameraMatrix, distCoeffs,
                         rvec, tvec
                 );
+                double x_translation = tvec.get(0, 0)[0]; // X position (left/right)
+                double y_translation = tvec.get(1, 0)[0]; // Y position (up/down)
+                double z_translation = tvec.get(2, 0)[0]; // Z position (distance from camera)
 
                 double distance = Core.norm(tvec);
                 Mat R = new Mat();

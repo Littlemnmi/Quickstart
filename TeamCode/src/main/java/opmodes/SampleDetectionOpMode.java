@@ -14,12 +14,11 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 //import org.firstinspires.ftc.teamcode.robot.camera.SampleDetectionProcessor;
 
-import org.firstinspires.ftc.vision.opencv.ColorBlobLocatorProcessor;
-import org.firstinspires.ftc.vision.opencv.ColorRange;
-import org.firstinspires.ftc.vision.opencv.ImageRegion;
 import org.opencv.core.RotatedRect;
 
 import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
 
 @TeleOp(name="Sample Detection", group="Test")
 public class SampleDetectionOpMode extends LinearOpMode {
@@ -32,17 +31,18 @@ public class SampleDetectionOpMode extends LinearOpMode {
     public void runOpMode() {
         processor = new SampleDetectionProcessor(CameraColor.RED);
 
-        ColorBlobLocatorProcessor colorLocator = new ColorBlobLocatorProcessor.Builder()
-            .setTargetColorRange(ColorRange.BLUE)         // use a predefined color match
-            .setContourMode(ColorBlobLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
-            .setRoi(ImageRegion.asUnityCenterCoordinates(-0.5, 0.5, 0.5, -0.5))  // search central 1/4 of camera view
+        ColorSampleLocatorProcessor colorLocator = new ColorSampleLocatorProcessor.Builder()
+            .setTargetColorRange(ColorRange.BLUE_HSV)        // use a predefined color match
+            .setContourMode(ColorSampleLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
+            .setRoi(ImageRegion.asUnityCenterCoordinates(-0.95, 0.95, 0.95, -0.95))  
             .setDrawContours(true)                        // Show contours on the Stream Preview
             .setBlurSize(5)                               // Smooth the transitions between different colors in image
             .build();
-
+        colorLocator.addFilter(new ColorSampleLocatorProcessor.BlobFilter(ColorSampleLocatorProcessor.BlobCriteria.BY_CONTOUR_AREA, 1000, 20000)); // Filter out very small blobs
+        //colorLocator.addFilter(new ColorSampleLocatorProcessor.BlobFilter(ColorSampleLocatorProcessor.BlobCriteria.BY_ASPECT_RATIO, 0.5, 2.0)); // Filter out blobs that are too wide or too narrow
         // Build the VisionPortal
         visionPortal = new VisionPortal.Builder()                
-                .addProcessor(processor)
+                .addProcessor(colorLocator)
                 .setCameraResolution(new Size(640, 480))
                 .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
                 .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
@@ -55,13 +55,12 @@ public class SampleDetectionOpMode extends LinearOpMode {
 
         while (opModeIsActive() || opModeInInit()) {
              // Read the current list
-            List<ColorBlobLocatorProcessor.Blob> blobs = colorLocator.getBlobs();
-            ColorBlobLocatorProcessor.Util.filterByArea(1000, 20000, blobs);  // filter out very small blobs.
+            List<ColorSampleLocatorProcessor.Blob> blobs = colorLocator.getBlobs();
 
             telemetry.addLine(" Area  Density  Aspect Center");
 
             // Display the size (area) and center location for each Blob.
-            for(ColorBlobLocatorProcessor.Blob b : blobs)
+            for(ColorSampleLocatorProcessor.Blob b : blobs)
             {
                 RotatedRect boxFit = b.getBoxFit();
                 telemetry.addLine(String.format("%5d  %4.2f   %5.2f  (%3d,%3d)",
