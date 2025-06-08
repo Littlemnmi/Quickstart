@@ -307,9 +307,18 @@ public abstract class ColorSampleLocatorProcessor implements VisionProcessor
 
         /**
          * Get the angle of this blob relative to the camera
-         * @return angle of this blob relative to the camera (radians)
+         * @return angle of this blob relative to the camera (degrees)
          */
         public abstract double getAngle();
+        
+        /**
+         * Set the position of this blob in the world
+         * @param x x translation of the center point of this blob (inches)
+         * @param y y translation of the center point of this blob (inches)
+         * @param z z distance of the center point of this blob (inches)
+         * @param angle angle of this blob relative to the camera (degrees)
+         */
+        public abstract void setPosition(double x, double y, double z, double angle);
 
     }
 

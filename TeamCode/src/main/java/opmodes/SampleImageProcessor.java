@@ -164,8 +164,7 @@ public class SampleImageProcessor {
                 if (area > minArea) {
                     RotatedRect rect = Imgproc.minAreaRect(new MatOfPoint2f(cnt.toArray()));
                     boxes.add(rect);
-                }
-                cnt.release();
+                }                
             }
             region.release();
         }

@@ -14,9 +14,11 @@ import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibra
 import org.firstinspires.ftc.vision.VisionProcessor;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.calib3d.Calib3d;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 
 class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implements VisionProcessor
 {
@@ -46,6 +48,16 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
     private final Object lockFilters = new Object();
     private final List<BlobFilter> filters = new ArrayList<>();
     private final Mat kernelClean;
+
+    private Mat cameraMatrix;
+    private MatOfDouble distCoeffs;
+
+    private static final double fx = 238.722;
+    private static final double fy = 238.722;
+
+    private static final double cx = 323.204;
+    private static final double cy = 228.638;
+
     private volatile BlobSort sort;
 
     private volatile ArrayList<Blob> userBlobs = new ArrayList<>();
@@ -54,11 +66,7 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
                                   int erodeSize, int dilateSize, boolean drawContours, int blurSize,
                                   @ColorInt int boundingBoxColor, @ColorInt int roiColor, @ColorInt int contourColor)
     {
-        // 7×7 elliptical kernel for morphological operations
-        this.kernelClean = Imgproc.getStructuringElement(
-                Imgproc.MORPH_ELLIPSE,
-                new Size(7, 7)
-        );
+
         this.colorRange = colorRange;
         this.roiImg = roiImg;
         this.drawContours = drawContours;
@@ -116,6 +124,32 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
         contourPaint = new Paint();
         contourPaint.setStyle(Paint.Style.STROKE);
         contourPaint.setColor(contourColor);
+
+
+        // 7×7 elliptical kernel for morphological operations
+        this.kernelClean = Imgproc.getStructuringElement(
+                Imgproc.MORPH_ELLIPSE,
+                new Size(7, 7)
+        );
+
+        cameraMatrix = Mat.zeros(3,3, CvType.CV_64F);
+        cameraMatrix.put(0, 0, fx);
+        cameraMatrix.put(0, 1, 0);
+        cameraMatrix.put(0, 2, cx);
+        cameraMatrix.put(1, 0, 0);
+        cameraMatrix.put(1, 1, fy);
+        cameraMatrix.put(1, 2, cy);
+        cameraMatrix.put(2, 0, 0);
+        cameraMatrix.put(2, 1, 0);
+        cameraMatrix.put(2, 2, 1);
+
+        distCoeffs = new MatOfDouble(
+                0.154576,   // k1
+                -1.19143,   // k2
+                0,   // p1 (tangential)
+                0,   // p2 (tangential)
+                2.06105  // k3
+        );
     }
 
     @Override
@@ -177,10 +211,47 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
             Util.sortByArea(SortOrder.DESCENDING, blobs);
         }
 
+        // Estimate blob positions in the camera frame
+        estimateBlobPositions(blobs);
+
         // Deep copy this to prevent concurrent modification exception
         userBlobs = new ArrayList<>(blobs);
 
         return blobs;
+    }
+
+    private void estimateBlobPositions(List<Blob> blobs) {
+        for (Blob blob : blobs) {
+            RotatedRect rect = Imgproc.minAreaRect(new MatOfPoint2f(blob.getContour().toArray()));
+            Point[] pts = new Point[4];
+            rect.points(pts);
+           
+            // Pose estimation
+            List<Point3> objPts = Arrays.asList(
+                    new Point3(-1.75, -0.75, 0),
+                    new Point3(1.75, -0.75, 0),
+                    new Point3(1.75, 0.75, 0),
+                    new Point3(-1.75, 0.75, 0)
+            );
+            List<Point> imgPts = new ArrayList<>(Arrays.asList(pts));
+
+            Mat rvec = new Mat(), tvec = new Mat();
+            Calib3d.solvePnP(
+                    new MatOfPoint3f(objPts.toArray(new Point3[0])),
+                    new MatOfPoint2f(imgPts.toArray(new Point[0])),
+                    cameraMatrix, distCoeffs,
+                    rvec, tvec
+            );
+            double x_translation = tvec.get(0, 0)[0]; // X position (left/right)
+            double y_translation = tvec.get(1, 0)[0]; // Y position (up/down)
+            double z_translation = tvec.get(2, 0)[0]; // Z position (distance from camera)
+
+            double distance = Core.norm(tvec);
+            Mat R = new Mat();
+            Calib3d.Rodrigues(rvec, R);
+            double yaw = Math.atan2(R.get(1, 0)[0], R.get(0, 0)[0]);
+            blob.setPosition(x_translation, y_translation, z_translation, Math.toDegrees(yaw));
+        }
     }
 
      /**
@@ -272,18 +343,7 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
     }
 
     private List<Blob> retrieveBlobsFromMask() {
-        /*ArrayList<MatOfPoint> contours = new ArrayList<>();
-        Mat hierarchy = new Mat();
-        Imgproc.findContours(mask, contours, hierarchy, contourCode, Imgproc.CHAIN_APPROX_SIMPLE);
-        hierarchy.release();
 
-        List<Blob> blobs = new ArrayList<>();
-        for (MatOfPoint contour : contours)
-        {
-            Core.add(contour, new Scalar(roi.x, roi.y), contour);
-            blobs.add(new BlobImpl(contour));
-        }
-        return blobs;*/
 
         Mat maskClean = cleanMask(mask);
 
@@ -567,6 +627,16 @@ class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implem
         {
             return x;
         }
+
+        @Override
+        public void setPosition(double x, double y, double z, double angle)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.angle = angle;
+        }
+
 
         @Override
         public double getY()
