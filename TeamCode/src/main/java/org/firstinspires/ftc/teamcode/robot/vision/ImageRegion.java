@@ -1,4 +1,5 @@
-package opmodes;
+package org.firstinspires.ftc.teamcode.robot.vision;
+
 import com.qualcomm.robotcore.util.Range;
 import org.opencv.core.Rect;
 

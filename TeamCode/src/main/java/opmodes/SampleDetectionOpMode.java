@@ -6,13 +6,10 @@ import android.util.Size;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-//import org.firstinspires.ftc.teamcode.robot.camera.CameraColor;
-//import org.firstinspires.ftc.teamcode.robot.camera.DetectedSample;
-//import org.firstinspires.ftc.teamcode.robot.camera.SampleDetectionPipeline;
-//import org.firstinspires.ftc.teamcode.robot.camera.SampleImageProcessor;
+
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
-//import org.firstinspires.ftc.teamcode.robot.camera.SampleDetectionProcessor;
+import org.firstinspires.ftc.teamcode.robot.vision.*;
 
 import org.opencv.core.RotatedRect;
 

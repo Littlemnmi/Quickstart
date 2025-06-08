@@ -1,4 +1,4 @@
-package opmodes;
+package org.firstinspires.ftc.teamcode.robot.vision;
 import org.opencv.core.Scalar;
 
 /**
