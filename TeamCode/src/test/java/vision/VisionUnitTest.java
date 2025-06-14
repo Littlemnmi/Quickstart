@@ -134,7 +134,7 @@ public class VisionUnitTest {
         );
         
         // Process the image
-        List<Blob> blobs = processor.process(img, ColorSpace.HSV, new Rect(0, 0, img.width(), img.height()));
+        List<Blob> blobs = processor.process(img, new Rect(0, 0, img.width(), img.height()));
         
         assertFalse("No blobs detected", blobs.isEmpty());
         printBlobs(blobs);  // You'll need to update this method to handle Blob objects
@@ -163,7 +163,7 @@ public class VisionUnitTest {
         );
 
         // Process the image
-        List<Blob> blobs = processor.process(img, ColorSpace.HSV, new Rect(0, 0, img.width(), img.height()));
+        List<Blob> blobs = processor.process(img, new Rect(0, 0, img.width(), img.height()));
 
         assertFalse("No blobs detected", blobs.isEmpty());
         printBlobs(blobs);  // You'll need to update this method to handle Blob objects
@@ -191,7 +191,7 @@ public class VisionUnitTest {
         );
 
         // Process the image
-        List<Blob> blobs = processor.process(img, ColorSpace.HSV, new Rect(0, 0, img.width(), img.height()));
+        List<Blob> blobs = processor.process(img, new Rect(0, 0, img.width(), img.height()));
 
         assertFalse("No blobs detected", blobs.isEmpty());
         printBlobs(blobs);  // You'll need to update this method to handle Blob objects

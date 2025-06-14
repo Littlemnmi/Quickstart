@@ -58,6 +58,8 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
     private static final double cx = 323.204;
     private static final double cy = 228.638;
 
+    private ColorSampleImageProcessor processor;
+
     private volatile BlobSort sort;
 
     private volatile ArrayList<Blob> userBlobs = new ArrayList<>();
@@ -135,6 +137,17 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
         cameraMatrix = configureCameraMatrix();
 
         distCoeffs = configureDistCoeffs();
+
+        // Create the processor with proper parameters
+        processor = new ColorSampleImageProcessor(
+                colorRange,
+                kernelClean,  // kernel for clean
+                erodeElement,     // erode element
+                dilateElement,     // dilate element
+                blurElement,                                                       // blur size
+                cameraMatrix,                 // camera matrix
+                distCoeffs                                            // distortion coeffs
+        );
     }
 
     public static Mat configureCameraMatrix() {
@@ -173,9 +186,11 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
     @Override
     public Object processFrame(Mat frame, long captureTimeNanos)
     {
-        filterAndProcessROI(frame);
+        //filterAndProcessROI(frame);
 
-        List<Blob> blobs = retrieveBlobsFromMask();
+        //List<Blob> blobs = retrieveBlobsFromMask();
+
+        List<Blob> blobs = processor.process(frame, roi);
 
         // Apply filters.
         synchronized (lockFilters)
@@ -221,7 +236,7 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
         }
 
         // Estimate blob positions in the camera frame
-        estimateBlobPositions(blobs);
+        //estimateBlobPositions(blobs);
 
         // Deep copy this to prevent concurrent modification exception
         userBlobs = new ArrayList<>(blobs);

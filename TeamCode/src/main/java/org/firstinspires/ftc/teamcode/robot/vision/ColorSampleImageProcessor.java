@@ -21,6 +21,8 @@ public class ColorSampleImageProcessor {
     private final Mat cameraMatrix;
     private final MatOfDouble distCoeffs;
 
+    private Mat roiMat_userColorSpace;
+
     public ColorSampleImageProcessor(
             List<ColorRange> ranges,
             Mat kernelClean,
@@ -43,30 +45,30 @@ public class ColorSampleImageProcessor {
      * Preprocess ROI: convert color space, blur, and create binary mask.
      */
     public Mat createMask(Mat roiBgr, ColorSpace space) {
-        Mat userSpace = new Mat();
+
         switch (space) {
             case HSV:
-                Imgproc.cvtColor(roiBgr, userSpace, Imgproc.COLOR_RGB2HSV);
+                Imgproc.cvtColor(roiBgr, roiMat_userColorSpace, Imgproc.COLOR_RGB2HSV);
                 break;
             case YCrCb:
-                Imgproc.cvtColor(roiBgr, userSpace, Imgproc.COLOR_RGB2YCrCb);
+                Imgproc.cvtColor(roiBgr, roiMat_userColorSpace, Imgproc.COLOR_RGB2YCrCb);
                 break;
             case RGB:
             default:
-                Imgproc.cvtColor(roiBgr, userSpace, Imgproc.COLOR_RGBA2RGB);
+                Imgproc.cvtColor(roiBgr, roiMat_userColorSpace, Imgproc.COLOR_RGBA2RGB);
         }
         if (blurSize != null) {
-            Imgproc.GaussianBlur(userSpace, userSpace, blurSize, 0);
+            Imgproc.GaussianBlur(roiMat_userColorSpace, roiMat_userColorSpace, blurSize, 0);
         }
 
         Mat mask = new Mat(roiBgr.rows(), roiBgr.cols(), CvType.CV_8U, new Scalar(0)); // Start with empty mask
         
         Mat tempMask = new Mat();
-        renderImage(userSpace, "userSpace.png");
+        //renderImage(userSpace, "userSpace.png");
         for (int i = 0; i < ranges.size(); i++) {
             ColorRange range = ranges.get(i);
-            Core.inRange(userSpace, range.min, range.max, tempMask);
-            renderImage(tempMask, "tempMask" + i + ".png");
+            Core.inRange(roiMat_userColorSpace, range.min, range.max, tempMask);
+            //renderImage(tempMask, "tempMask" + i + ".png");
             if (i == 0) {
                 // For first range, just copy to the mask
                 tempMask.copyTo(mask);
@@ -79,7 +81,7 @@ public class ColorSampleImageProcessor {
 
         if (erodeElem != null) Imgproc.erode(mask, mask, erodeElem);
         if (dilateElem != null) Imgproc.dilate(mask, mask, dilateElem);
-        userSpace.release();
+
         return mask;
     }
 
@@ -98,7 +100,7 @@ public class ColorSampleImageProcessor {
     /**
      * Segments blobs via watershed and returns marker image.
      */
-    public Mat computeMarkers(Mat clean, Mat bgr) {
+    public Mat computeMarkers(Mat clean) {
         Mat dist = new Mat();
         Imgproc.distanceTransform(clean, dist, Imgproc.DIST_L2, 5);
         Core.MinMaxLocResult mm = Core.minMaxLoc(dist);
@@ -113,16 +115,18 @@ public class ColorSampleImageProcessor {
         Mat unknown = new Mat();
         Core.subtract(bg, fg, unknown);
 
-        renderImage(fg, "fg.png");
-        renderImage(bg, "bg.png");
+        //renderImage(fg, "fg.png");
+        //renderImage(bg, "bg.png");
 
         Mat markers = new Mat();
         Imgproc.connectedComponents(fg, markers);
-        renderImage(markers, "markers_0.png");
+        //renderImage(markers, "markers_0.png");
         Core.add(markers, Scalar.all(1), markers);
         markers.setTo(Scalar.all(0), unknown);
 
-        Mat bgrCopy = bgr.clone();
+        //Mat bgrCopy = bgr.clone();
+        Mat bgrCopy = new Mat();
+        Imgproc.cvtColor(roiMat_userColorSpace, bgrCopy, Imgproc.COLOR_HSV2BGR);  // Ensure CV_8UC3
         Imgproc.watershed(bgrCopy, markers);
         
         dist.release(); 
@@ -193,17 +197,17 @@ public class ColorSampleImageProcessor {
     /**
      * Full pipeline: mask -> clean -> markers -> blobs -> pose
      */
-    public List<Blob> process(Mat roiBgr, ColorSpace space, Rect roi) {
-
+    public List<Blob> process(Mat roiBgr, Rect roi) {
+        ColorSpace space = ranges.get(0).colorSpace;
         Mat roiMat = roiBgr.submat(roi);
-        Mat roiMat_userColorSpace = roiMat.clone();
-        renderImage(roiMat_userColorSpace, "roiMat_userColorSpace.png");
-        Mat raw = createMask(roiMat_userColorSpace, space);
-        renderImage(raw, "raw.png");
+        roiMat_userColorSpace = roiMat.clone();
+        //renderImage(roiMat_userColorSpace, "roiMat_userColorSpace.png");
+        Mat raw = createMask(roiMat, space);
+        //renderImage(raw, "raw.png");
         Mat clean = cleanMask(raw);
-        renderImage(clean, "mask_clean.png");
-        Mat markers = computeMarkers(clean, roiBgr);
-        renderImage(markers, "markers.png");
+        //renderImage(clean, "mask_clean.png");
+        Mat markers = computeMarkers(clean);
+        //renderImage(markers, "markers.png");
         List<Blob> blobs = findBlobs(markers, roi);
         estimatePose(blobs);
 
