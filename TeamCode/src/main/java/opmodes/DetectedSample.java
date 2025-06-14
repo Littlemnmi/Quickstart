@@ -7,6 +7,8 @@ public class DetectedSample {
     public double distanceInches;
     public double angleDegrees; // orientation relative to camera
 
+    
+
     public DetectedSample(RotatedRect rect, double distance, double angle) {
         this.boundingBox = rect;
         this.distanceInches = distance;

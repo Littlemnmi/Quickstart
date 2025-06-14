@@ -76,12 +76,12 @@ public class SampleDetectionOpMode extends LinearOpMode {
 
         while (opModeIsActive() || opModeInInit()) {
              // Read the current list
-            List<ColorSampleLocatorProcessor.Blob> blobs = colorLocator.getBlobs();
+            List<Blob> blobs = colorLocator.getBlobs();
 
             telemetry.addLine(" Area  Aspect Center Position");
 
             // Display the size (area) and center location for each Blob.
-            for(ColorSampleLocatorProcessor.Blob b : blobs)
+            for(Blob b : blobs)
             {
                 RotatedRect boxFit = b.getBoxFit();
                 telemetry.addLine(String.format("%5d  %5.2f  (%3d,%3d) (%4.2f,%4.2f, %4.2f,%4.2f)",
