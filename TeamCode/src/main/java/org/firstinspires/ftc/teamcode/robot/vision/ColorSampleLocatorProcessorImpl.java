@@ -22,24 +22,16 @@ import java.util.Arrays;
 
 public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor implements VisionProcessor
 {
-    private List<ColorRange> colorRange;
     private ImageRegion roiImg;
     private Rect roi;
-    private int frameWidth;
-    private int frameHeight;
-    private Mat roiMat;
-    private Mat roiMat_userColorSpace;
-    private final int contourCode;
 
-    private Mat mask = new Mat();
+    private int contourCode;
+
 
     private final Paint boundingRectPaint;
     private final Paint roiPaint;
     private final Paint contourPaint;
     private final boolean drawContours;
-    private final @ColorInt int boundingBoxColor;
-    private final @ColorInt int roiColor;
-    private final @ColorInt int contourColor;
 
     private final Mat erodeElement;
     private final Mat dilateElement;
@@ -69,12 +61,8 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
                                   @ColorInt int boundingBoxColor, @ColorInt int roiColor, @ColorInt int contourColor)
     {
 
-        this.colorRange = colorRange;
         this.roiImg = roiImg;
         this.drawContours = drawContours;
-        this.boundingBoxColor = boundingBoxColor;
-        this.roiColor = roiColor;
-        this.contourColor = contourColor;
 
         if (blurSize > 0)
         {
@@ -146,7 +134,8 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
                 dilateElement,     // dilate element
                 blurElement,                                                       // blur size
                 cameraMatrix,                 // camera matrix
-                distCoeffs                                            // distortion coeffs
+                distCoeffs,                                            // distortion coeffs
+                contourCode
         );
     }
 
@@ -177,18 +166,12 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
     @Override
     public void init(int width, int height, CameraCalibration calibration)
     {
-        frameWidth = width;
-        frameHeight = height;
-
         roi = roiImg.asOpenCvRect(width, height);
     }
 
     @Override
     public Object processFrame(Mat frame, long captureTimeNanos)
     {
-        //filterAndProcessROI(frame);
-
-        //List<Blob> blobs = retrieveBlobsFromMask();
 
         List<Blob> blobs = processor.process(frame, roi);
 
@@ -235,213 +218,11 @@ public class ColorSampleLocatorProcessorImpl extends ColorSampleLocatorProcessor
             Util.sortByArea(SortOrder.DESCENDING, blobs);
         }
 
-        // Estimate blob positions in the camera frame
-        //estimateBlobPositions(blobs);
 
         // Deep copy this to prevent concurrent modification exception
         userBlobs = new ArrayList<>(blobs);
 
         return blobs;
-    }
-
-    private void estimateBlobPositions(List<Blob> blobs) {
-        for (Blob blob : blobs) {
-            RotatedRect rect = Imgproc.minAreaRect(new MatOfPoint2f(blob.getContour().toArray()));
-            Point[] pts = new Point[4];
-            rect.points(pts);
-           
-            // Pose estimation
-            List<Point3> objPts = Arrays.asList(
-                    new Point3(-1.75, -0.75, 0),
-                    new Point3(1.75, -0.75, 0),
-                    new Point3(1.75, 0.75, 0),
-                    new Point3(-1.75, 0.75, 0)
-            );
-            List<Point> imgPts = new ArrayList<>(Arrays.asList(pts));
-
-            Mat rvec = new Mat(), tvec = new Mat();
-            Calib3d.solvePnP(
-                    new MatOfPoint3f(objPts.toArray(new Point3[0])),
-                    new MatOfPoint2f(imgPts.toArray(new Point[0])),
-                    cameraMatrix, distCoeffs,
-                    rvec, tvec
-            );
-            double x_translation = tvec.get(0, 0)[0]; // X position (left/right)
-            double y_translation = tvec.get(1, 0)[0]; // Y position (up/down)
-            double z_translation = tvec.get(2, 0)[0]; // Z position (distance from camera)
-
-            double distance = Core.norm(tvec);
-            Mat R = new Mat();
-            Calib3d.Rodrigues(rvec, R);
-            double yaw = Math.atan2(R.get(1, 0)[0], R.get(0, 0)[0]);
-            blob.setPosition(x_translation, y_translation, z_translation, Math.toDegrees(yaw));
-        }
-    }
-
-     /**
-     * Compute watershed markers from a cleaned mask.
-     * Returns a 32S Mat where each region has a unique marker ID.
-     */
-    private Mat computeMarkers(Mat maskClean, Mat inputBgr) {
-        // Distance transform
-        Mat dist = new Mat();
-        Imgproc.distanceTransform(maskClean, dist, Imgproc.DIST_L2, 5);
-        Core.MinMaxLocResult mmr = Core.minMaxLoc(dist);
-
-        // Foreground (sure internal regions)
-        Mat fg = new Mat();
-        Imgproc.threshold(dist, fg, 0.8 * mmr.maxVal, 255, Imgproc.THRESH_BINARY);
-        fg.convertTo(fg, CvType.CV_8U);
-
-        // Background (sure external regions)
-        Mat bg = new Mat();
-        Imgproc.dilate(maskClean, bg, kernelClean, new Point(-1, -1), 3);
-
-        // Unknown region = bg - fg
-        Mat unknown = new Mat();
-        Core.subtract(bg, fg, unknown);
-
-        //renderImage(fg, "fg.png");
-        //renderImage(bg, "bg.png");
-
-        // Label foreground components
-        Mat markers = new Mat();
-        Imgproc.connectedComponents(fg, markers);
-        //renderImage(markers, "markers_0.png");
-        Core.add(markers, Scalar.all(1), markers);        // ensure background != 0
-        markers.setTo(Scalar.all(0), unknown);           // mark unknown as 0
-
-        // Clone the BGR image so we don’t accidentally free the caller’s Mat
-        Mat bgrForWatershed = inputBgr.clone();
-        Imgproc.watershed(bgrForWatershed, markers);
-
-        dist.release();
-        fg.release();
-        bg.release();
-        unknown.release();
-        bgrForWatershed.release();
-        return markers;
-    }
-
-    /**
-     * From labeled markers, extract rotated bounding boxes for regions above minArea.
-     */
-    public List<Blob> findBlobs(Mat markers) {
-        Core.MinMaxLocResult mm = Core.minMaxLoc(markers);
-        int maxLabel = (int) mm.maxVal;
-        List<RotatedRect> boxes = new ArrayList<>();
-
-        List<Blob> blobs = new ArrayList<>();
-        
-        for (int label = 2; label <= maxLabel; label++) {
-            Mat region = new Mat();
-            Core.compare(markers, new Scalar(label), region, Core.CMP_EQ);
-            region.convertTo(region, CvType.CV_8U, 255);
-
-            List<MatOfPoint> contours = new ArrayList<>();
-            Mat hierarchy = new Mat();
-            Imgproc.findContours(region, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            hierarchy.release();
-            for (MatOfPoint contour : contours) {
-                if (!contour.empty() && Imgproc.contourArea(contour) > 100) {
-                    Core.add(contour, new Scalar(roi.x, roi.y), contour);
-                    blobs.add(new BlobImpl(contour));
-                }
-                
-            }
-            region.release();
-        }
-        return blobs;
-    }
-
-    /**
-     * Clean up a binary mask via morphological closing then opening.
-     */
-    private Mat cleanMask(Mat mask) {
-        Mat cleaned = new Mat();
-        Imgproc.morphologyEx(mask, cleaned, Imgproc.MORPH_CLOSE, kernelClean, new Point(-1, -1), 2);
-        Mat cleaned2 = new Mat();
-        Imgproc.morphologyEx(cleaned, cleaned2, Imgproc.MORPH_OPEN,  kernelClean, new Point(-1, -1), 2);
-        cleaned.release();
-        return cleaned2;
-    }
-
-    private List<Blob> retrieveBlobsFromMask() {
-
-
-        Mat maskClean = cleanMask(mask);
-
-        // Compute markers for watershed
-        Mat markers = computeMarkers(maskClean, roiMat_userColorSpace);
-
-        //renderImage(markers, "markers_" + color.name().toLowerCase() + ".png");
-
-        List<Blob> blobs = findBlobs(markers);
-        maskClean.release();
-        markers.release();
-        return blobs;
-    }
-
-    private void filterAndProcessROI(Mat frame) {
-        if (roiMat == null)
-        {
-            roiMat = frame.submat(roi);
-            roiMat_userColorSpace = roiMat.clone();
-        }
-
-        if (colorRange.get(0).colorSpace == ColorSpace.YCrCb)
-        {
-            Imgproc.cvtColor(roiMat, roiMat_userColorSpace, Imgproc.COLOR_RGB2YCrCb);
-        }
-        else if (colorRange.get(0).colorSpace == ColorSpace.HSV)
-        {
-            Imgproc.cvtColor(roiMat, roiMat_userColorSpace, Imgproc.COLOR_RGB2HSV);
-        }
-        else if (colorRange.get(0).colorSpace == ColorSpace.RGB)
-        {
-            Imgproc.cvtColor(roiMat, roiMat_userColorSpace, Imgproc.COLOR_RGBA2RGB);
-        }
-
-        if (blurElement != null)
-        {
-            Imgproc.GaussianBlur(roiMat_userColorSpace, roiMat_userColorSpace, blurElement, 0);
-        }
-
-        createColorRangeMask();
-        
-
-        if (erodeElement != null)
-        {
-            Imgproc.erode(mask, mask, erodeElement);
-        }
-
-        if (dilateElement != null)
-        {
-            Imgproc.dilate(mask, mask, dilateElement);
-        }
-    }
-
-    private void createColorRangeMask() {
-        // Process multiple color ranges by combining their masks
-        mask.release(); // Release any previously used mask
-        mask = new Mat(roiMat.rows(), roiMat.cols(), CvType.CV_8U, new Scalar(0)); // Start with empty mask
-        
-        Mat tempMask = new Mat();
-        
-        for (int i = 0; i < colorRange.size(); i++) {
-            ColorRange range = colorRange.get(i);
-            Core.inRange(roiMat_userColorSpace, range.min, range.max, tempMask);
-            
-            if (i == 0) {
-                // For first range, just copy to the mask
-                tempMask.copyTo(mask);
-            } else { 
-                // For subsequent ranges, OR with the existing mask
-                Core.bitwise_or(mask, tempMask, mask);
-            }
-        }
-        
-        tempMask.release();
     }
 
     @Override

@@ -35,7 +35,7 @@ public class SampleDetectionOpMode extends LinearOpMode {
                 .setContourMode(ColorSampleLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
                 .setRoi(ImageRegion.asUnityCenterCoordinates(-0.95, 0.95, 0.95, -0.95))  
                 .setDrawContours(true)                        // Show contours on the Stream Preview
-                .setBlurSize(5)                               // Smooth the transitions between different colors in image
+                //.setBlurSize(5)                               // Smooth the transitions between different colors in image
                 .build();
         } else if (Consts.SAMPLE_COLOR.equals("B")) {
             colorLocator = new ColorSampleLocatorProcessor.Builder()
@@ -43,7 +43,7 @@ public class SampleDetectionOpMode extends LinearOpMode {
                 .setContourMode(ColorSampleLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
                 .setRoi(ImageRegion.asUnityCenterCoordinates(-0.95, 0.95, 0.95, -0.95))  
                 .setDrawContours(true)                        // Show contours on the Stream Preview
-                .setBlurSize(5)                               // Smooth the transitions between different colors in image
+                //.setBlurSize(5)                               // Smooth the transitions between different colors in image
                 .build();
         } else if (Consts.SAMPLE_COLOR.equals("Y")) {
             colorLocator = new ColorSampleLocatorProcessor.Builder()
@@ -51,7 +51,6 @@ public class SampleDetectionOpMode extends LinearOpMode {
                 .setContourMode(ColorSampleLocatorProcessor.ContourMode.EXTERNAL_ONLY)    // exclude blobs inside blobs
                 .setRoi(ImageRegion.asUnityCenterCoordinates(-0.95, 0.95, 0.95, -0.95))  
                 .setDrawContours(true)                        // Show contours on the Stream Preview
-                .setBlurSize(5)                               // Smooth the transitions between different colors in image
                 .build();
         } else {
             telemetry.addLine("Invalid SAMPLE_COLOR constant! Use RED, BLUE or GREEN.");
@@ -59,7 +58,7 @@ public class SampleDetectionOpMode extends LinearOpMode {
             return;
         }
         
-        colorLocator.addFilter(new ColorSampleLocatorProcessor.BlobFilter(ColorSampleLocatorProcessor.BlobCriteria.BY_CONTOUR_AREA, 1000, 20000)); // Filter out very small blobs
+        colorLocator.addFilter(new ColorSampleLocatorProcessor.BlobFilter(ColorSampleLocatorProcessor.BlobCriteria.BY_CONTOUR_AREA, 600, 20000)); // Filter out very small blobs
         colorLocator.addFilter(new ColorSampleLocatorProcessor.BlobFilter(ColorSampleLocatorProcessor.BlobCriteria.BY_ASPECT_RATIO, 0.5, 2.0)); // Filter out blobs that are too wide or too narrow
         // Build the VisionPortal
         visionPortal = new VisionPortal.Builder()                

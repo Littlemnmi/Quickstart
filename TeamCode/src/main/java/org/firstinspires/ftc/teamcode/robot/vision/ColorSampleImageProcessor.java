@@ -21,6 +21,8 @@ public class ColorSampleImageProcessor {
     private final Mat cameraMatrix;
     private final MatOfDouble distCoeffs;
 
+    private final int contourCode;
+
     private Mat roiMat_userColorSpace;
 
     public ColorSampleImageProcessor(
@@ -30,7 +32,8 @@ public class ColorSampleImageProcessor {
             Mat dilateElem,
             Size blurSize,
             Mat cameraMatrix,
-            MatOfDouble distCoeffs
+            MatOfDouble distCoeffs,
+            int contourCode
     ) {
         this.ranges = ranges;
         this.kernelClean = kernelClean;
@@ -39,6 +42,7 @@ public class ColorSampleImageProcessor {
         this.blurSize = blurSize;
         this.cameraMatrix = cameraMatrix;
         this.distCoeffs = distCoeffs;
+        this.contourCode = contourCode;
     }
 
     /**
@@ -152,7 +156,7 @@ public class ColorSampleImageProcessor {
 
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hier = new Mat();
-            Imgproc.findContours(region, contours, hier, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            Imgproc.findContours(region, contours, hier, contourCode, Imgproc.CHAIN_APPROX_SIMPLE);
             hier.release();
 
             for (MatOfPoint contour : contours) {
@@ -219,6 +223,7 @@ public class ColorSampleImageProcessor {
         return blobs;
     }
 
+    //for debugging unit test purpose
     private int renderBoxContour(Mat inputBgr, int idx, Point[] pts) {
 
         MatOfPoint box = new MatOfPoint(pts);

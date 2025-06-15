@@ -130,7 +130,8 @@ public class VisionUnitTest {
             dilateElem,     // dilate element
             blurSize,                                                       // blur size
             cameraMatrix,                 // camera matrix
-            distCoeffs                                            // distortion coeffs
+            distCoeffs,                                           // distortion coeffs
+            Imgproc.RETR_EXTERNAL
         );
         
         // Process the image
@@ -159,7 +160,8 @@ public class VisionUnitTest {
                 dilateElem,     // dilate element
                 blurSize,                                                       // blur size
                 cameraMatrix,                 // camera matrix
-                distCoeffs                                            // distortion coeffs
+                distCoeffs,                                            // distortion coeffs
+                Imgproc.RETR_EXTERNAL
         );
 
         // Process the image
@@ -187,7 +189,8 @@ public class VisionUnitTest {
                 dilateElem,     // dilate element
                 blurSize,                                                       // blur size
                 cameraMatrix,                 // camera matrix
-                distCoeffs                                            // distortion coeffs
+                distCoeffs,                                            // distortion coeffs
+                Imgproc.RETR_EXTERNAL
         );
 
         // Process the image
